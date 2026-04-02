@@ -7,8 +7,30 @@ use PhpAmqpLib\Message\AMQPMessage;
 
 class UploadController
 {
-    public function index($request){
-        var_dump($request);
+    public function index(){
+        echo("
+            Инструмент для сжатия фото через систему очередей RabbitMQ (php-amqplib 3.7.4)
+
+            Принимающие параметры:
+
+            Запрос POST /upload
+
+            REQUIRED
+            {
+                upload => JPEG, GIF, PNG
+            }
+
+            REQUIRED
+            {
+                size => размер в %: 0.1-100
+                height => высота в px: 0.1-500
+                Width => ширина в px: 0.1-500
+            }
+
+            Запрос GET /index или /help
+
+            Помощь
+        ");
     }
     public function upload($request){
 

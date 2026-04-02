@@ -7,9 +7,9 @@ class Router
 {
 
     protected $routes = [
-        "/index" => ["App\Controller\UploadController", "index"],
-        "/upload" => ['App\Controller\UploadController', 'upload'],
-        "/download" => ["App\Controller\UploadController", "download"],
+        "/index" => ["App\Controller\UploadController", "index", "GET"],
+        "/help" => ["App\Controller\UploadController", "index", "GET"],
+        "/upload" => ['App\Controller\UploadController', 'upload', "POST"],
     ];
 
     public function dispatch(){
@@ -19,16 +19,16 @@ class Router
         $data = $this->getFormData($method);
 
         $route = $this->routes[$uri];
-        if(!$route) throw new Exception("404, страница не найдена");
+        if(!$route) throw new Exception("404, page not found");
+        if($method != $route[2]) throw new Exception("Wrong method, method " . $route[2] . " REQUIRED");
 
         try{
-
             $class = new $route[0]();
             $method = $route[1];
             $class->$method($data);
 
         } catch(Exception $e){
-            echo("Ошибка " . $e->getMessage());
+            echo("error " . $e->getMessage());
         }
         
     }

@@ -37,8 +37,6 @@ $callback = function (AMQPMessage $msg) {
             $data['size'] ? $image->scale($data['size']) : null;
             $data['height'] ? $image->resizeToHeight($data['height']) : null;
             $data['width'] ? $image->resizeToWidth($data['width']) : null;
-
-            sleep(3);
             
             // Сохраняем (Лмбо перезапись, либо с префиксом converted - префикс сырой)
             $image->save($fullPath); 
