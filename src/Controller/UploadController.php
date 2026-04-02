@@ -102,13 +102,4 @@ class UploadController
     // public function download($request){
     //     echo("download");
     // }
-
-    // public function worker($request){
-    //     echo("Жду задачу");
-    //     $connection = new AMQPStreamConnection($_ENV("AMQP_HOST"), $_ENV("AMQP_PORT"), $_ENV("AMQP_NAME"), $_ENV("AMQP_PASS"));
-    //     $channel = $connection->channel();
-
-    //     $channel->queue_declare();
-        
-    // }
 }
