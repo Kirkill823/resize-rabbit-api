@@ -46,9 +46,6 @@ class UploadController
 
         $upload = $request["upload"];
         $filename = uniqid('', true) . '.' . pathinfo($upload['name'], PATHINFO_EXTENSION);
-        // $upload = $_FILES['upload'];
-
-        // $filename = bin2hex(random_bytes(16)) . '.' . pathinfo($upload['name'], PATHINFO_EXTENSION);
 
         $path = __DIR__ . '/../../uploads/';
         $fullPath = $path . $filename;
