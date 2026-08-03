@@ -8,7 +8,13 @@ use PhpAmqpLib\Message\AMQPMessage;
 use App\Controller\ResizeController;
 use App\Controller\MailController;
 
-$connection = new AMQPStreamConnection(getenv("AMQP_HOST"), getenv("AMQP_PORT"), getenv("AMQP_NAME"), getenv("AMQP_PASS"));
+// Создание соединения обёрнуто в try/catch чтобы логировать/падающие ошибки
+try {
+    $connection = new AMQPStreamConnection(getenv("AMQP_HOST"), getenv("AMQP_PORT"), getenv("AMQP_NAME"), getenv("AMQP_PASS"));
+} catch (\Exception $e) {
+    echo "Unable to connect to AMQP: " . $e->getMessage() . "\n";
+    exit(1);
+}
 
 $channel = $connection->channel();
 
@@ -16,44 +22,59 @@ $channel->queue_declare("upload_resize", false, true, false, false);
 
 echo "Ожидание сообщений.\n";
 
-$callback = function (AMQPMessage $msg) {
+$uploadDir = __DIR__ . '/uploads/'; // локальная папка uploads
+
+$callback = function (AMQPMessage $msg) use ($channel, $uploadDir) {
     echo "!Получена задача на обработку...\n";
     echo "DEBUG: Содержимое сообщения: " . $msg->body . "\n";
 
     $data = json_decode($msg->body, true);
-    
-    if (!$data || !isset($data['filename']) || !isset($data['path'])) {
+    if (!$data || !isset($data['filename'])) {
         echo "!!!Ошибка: Неверный формат данных в очереди.\n";
-        $msg->ack();
+        // отклоняем сообщение без повторной постановки
+        $channel->basic_reject($msg->delivery_info['delivery_tag'], false);
         return;
     }
 
-    $fullPath = $data['path'] . $data['filename'];
+    $filename = basename($data['filename']); // защититься от путей
+    $fullPath = realpath($uploadDir . $filename);
+    $allowedBase = realpath($uploadDir);
 
-    if (file_exists($fullPath)) {
-        try {
-            $image = new ResizeController(); // ресайзер из stack over flow
-            $image->load($fullPath);
-            $data['size'] ? $image->scale($data['size']) : null;
-            $data['height'] ? $image->resizeToHeight($data['height']) : null;
-            $data['width'] ? $image->resizeToWidth($data['width']) : null;
-            
-            // Сохраняем (Лмбо перезапись, либо с префиксом converted - префикс сырой)
-            $image->save($fullPath); 
+    if ($fullPath === false || $allowedBase === false || strpos($fullPath, $allowedBase) !== 0 || !file_exists($fullPath)) {
+        echo "!!!Файл не найден или недопустимый путь: " . ($uploadDir . $filename) . "\n";
+        $channel->basic_reject($msg->delivery_info['delivery_tag'], false);
+        return;
+    }
 
-            // $image->save($fullPath . "converted"); 
-            
-            echo "Файл обработан: " . $data['filename'] . "\n";
-        } catch (\Exception $e) {
-            echo "!!!Ошибка при обработке картинки: " . $e->getMessage() . "\n";
+    try {
+        $image = new ResizeController();
+        $image->load($fullPath);
+
+        if (!empty($data['size'])) {
+            $image->scale((float)$data['size']);
         }
-    } else {
-        echo "!!!Файл не найден на диске: " . $fullPath . "\n";
-    } 
+        if (!empty($data['height'])) {
+            $image->resizeToHeight((int)$data['height']);
+        }
+        if (!empty($data['width'])) {
+            $image->resizeToWidth((int)$data['width']);
+        }
 
-    // $mail = new MailController(); тут обработка отправку фото и последующие удаление с сервера
+        // Сохраняем: по умолчанию перезаписываем файл. При желании можно сохранять новый файл с префиксом.
+        $image->save($fullPath);
 
-    $msg->ack();
+        echo "Файл обработан: " . $filename . "\n";
+
+        // подтверждаем успешную обработку
+        $channel->basic_ack($msg->delivery_info['delivery_tag']);
+
+    } catch (\Exception $e) {
+        echo "!!!Ошибка при обработке картинки: " . $e->getMessage() . "\n";
+        // отказ и не возвращать в очередь (или менять policy по retry / DLX)
+        $channel->basic_nack($msg->delivery_info['delivery_tag'], false, false);
+    }
+
+    // $mail = new MailController(); тут можно отправлять и удалять файл при необходимости
 };
 
 $channel->basic_qos(null, 1, null);
