@@ -13,6 +13,7 @@
         }
     ],
     "require": {
-        "php-amqplib/php-amqplib": "^3.7.4"
+        "php-amqplib/php-amqplib": "^3.7.4",
+        "ext-gd": "*"
     }
 }
